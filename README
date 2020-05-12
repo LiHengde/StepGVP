@@ -1,0 +1,133 @@
+StepGVP Suite Manual V1.0
+
+Hengde Li
+Chinese Academy of Fishery Sciences
+
+1. StepGVP
+
+StepGVP is a software for stepwise genomic variance partitioning, association mapping and genomic prediction with linear mixed model. Unlike the normal stepwise linear model, which select and drop fixed factors one by one on each round, StepGVP select and drop random factors one by one on each round, and the (co)variance structures of random factors can be specified.
+stepGVP was written in R, and EMMREML packages must be installed. For computational efficiency, we suggest the users run this program under Linux operation system.
+
+Principle:
+The phenotype (P) can be decomposed as genetic (G) and environmental (E) effects, 
+P = G + E
+and G can be further decomposed as additive (A), dominant (D), and epistatic (I) effects,
+G = A + D + I
+hence,
+P = A + D + I + E
+epistatic effect consists of four types of modes, additive by additive (aa), additive by dominance (ad), dominance by additive (da) and dominance by dominance (dd), therefore, the observation value (y) can be decomposed as in matrix format:
+y = X%*%b + W%*%u + Z_a%*%a + Z_d%*%d + Z_aa%*%i_aa + Z_ad%*%i_ad + Z_dd%*%i_dd + e
+where y is phenotypic observation values, b is fixed effects and u is non-genetic random effects, a is polygenic effects, d is dominant effects, iaa, iad and idd are aa, ad, dd epistatic effects, respectively. X, W, Za, Zd, Zaa, Zad and Zdd are the incidence matrices of b, u, a, d, iaa, iad, and idd, respectively. e is random error. And they following: a~N(0,K_a%*%var(a)), d~N(0,K_d%*%var(d)), i_aa~N(0,K_aa%*%var(i_aa)), i_ad~N(0,K_ad%*%var(i_ad)), i_dd~N(0,K_dd%*%var(i_dd)) and e~N(0,var(e)).
+where Ka, Kd, Kaa, Kad, and Kdd, were realized genetic relationship matrix of a, d, iaa, iad and idd, respectively. I is an identity matrix.
+K_a = M%*%t(M)/∑2*p_i*(1-p_i)
+K_d = H%*%t(H)/∑2*p_i*(1-p_i )[1-2*p_i*(1-p_i )]
+K_aa ≈ K_a#K_a
+K_ad ≈ K_a#K_d
+K_dd ≈ K_d#K_d
+The details of these matrix construction can be referred as (vanRaden, 2008, Journal of Dariy Science and Su et al, 2012, PlosOne)
+Similarly, the kinship matrices can be constructed with the markers on a chromosome, a segment, or even only a SNP itself.
+
+The above formula is genomic variance partitioning at genome level. Please notice that, in theory da epistatic effect should be included, however, it is mixed with ad, for computation efficiency.
+A, D, and I can also be further decomposed at chromosome-wise level, segment level, even SNP level, 
+
+Before running StepGVP, you need to install R language and check the environmental variables in your computer, and ensure that it is available to run Rscript, and EMMREML package has been installed.
+
+Usage:
+StepGVP.R -model model_file -iter n_iteration -alpha 0.05 –varpct 0.01 -out out_file –core n_core
+(if you run the program under Windows system, please add Rscript ahead.)
+[options]:
+-model /-m: model_file
+-core / -c:  number of cores
+-alpha /-a : significance level, the default values is 0.05
+-iter /-i : number of iterations
+-varpct /-v : criteria of removing random variables out from the model, the default value is 0.01
+-out /-o : to specify prefix of the output files
+
+The format of model_file is as the following:
+
+Phe_File:   dmu_dat  # phenotypic file
+Dep_Col:     3        # trait column in phenotype file
+Fix_Col:     2        # fixed factor column
+Cov_Col:     0        # covariables column
+Random_0:    0        # random factor column without (co)var structure matrix
+Random_1:    1        # random factor column with (co)var structure, which is always in model
+Random_2:    1        # random factor column with (co)var structure, which is being tested.
+RanMat_1:   mats_1   # file containing the (co)var matrix filename 
+                        # for Random_1, if not, please use NA for missing     
+RanMat_2:   mats_2   # file containing the (co)var matrix filename for          
+                        # Random_2, this file must exist.
+
+The (co)variance structures are stored as the lower tri-angular format.
+
+The output files contain:
+out_file_log, log file
+out_file_summ: summary file of output, including the final optimized model, likelihood and variance components;
+out_file_null: statistics of null model
+out_file_sol: solutions for random effects
+out_file_beta: solutions for fixed effects
+out_file_llik: the likelihoods of each effects in the first iteration round.
+
+
+
+2. EpiGRM
+
+EpiGRM is written in R, it can be used to calculate the genetic relationship matrices (GRM) for different epistatic effects for chromosome level and segment level.
+Before constructing the GRM of epistasis, it is necessary to construct GRM of additive and dominant effect. To calculate GRM of additive effects, the genotype matrix was coded as 0, 1 and 2 for genotype of AA, Aa, and aa for each loci. p is the allele frequency of a for each marker, the code subtract the mean of the corresponding marker under Hardy-Weinberg Equilibrium, and formed the matrix M. while to calculate GRM of dominant effects, the genotype matrix was coded as 0, 1 and 1 for genotype of AA, Aa, and aa for each loci, and subtract the mean of the corresponding marker under HWE and formed the matrix H.
+
+The GRM K_a, K_d, K_aa, K_ad, K_dd, K_da, and K_dd are as the above.
+
+For the GRM at chromosome, segment or point level, just using only the corresponding markers.
+
+Usage:
+Rscript EpiGRM.R -genotype genotype_file -format gentype_format -pedigree pedigree_file
+          -method method -snp map_information -output output_file_prefix 
+          -level chromosome_level -type epistasis_type -unit unit -chr chr1 chr2
+
+-genotype: genotype file, it can be simplified as –geno or -g;
+-format: genotype format, allele or genotype. the allele format is id, allele1.1, allele1.2, allele2.1, allele2.2 …; and the genotype format is: id, geno1, geno2….   Allele is used with 1 and 2, genotype is indicated with 0,1,2. It can be simplified as –form or -f。
+-pedigree: pedigree file, id, father and mother. It can be simplified as –ped or -p。
+-method: which method is used to calculate GRM，1, 2, and 3. 1 and 2 indicate method 1 and 2 in Van Raden (2008, J. Dairy Sci.), 3 means the standardization with observed men and variance of each marker. It can be simplified as –meth or -m。
+-snp: the SNP map file, marker name, chromosome, position. It can be simplified as –s or by using –map.
+-output:  the prefix of output, can be simplified as –out or -o。
+-level:  at which level, chromosome (chr) or segment (seg), can be simplified as –l.
+-type:  the type of epistasis (aa, ad, da and dd), can be simplified as –t.
+-unit   : the length of chromosome segment (Mb), can be simplified as –u.
+-chr : chromosome, chr1 and chr2 mean the GRM between chr1 and chr2.
+Output：
+The output file for chromosome level is named as: prefix_chr1_chr2_type 
+The output file for segment level is named as:prefix_chr1.segi_chr2.segj_type
+
+
+3. GDGRM
+GDGRM is written in R, it can be used to calculate the genetic relationship matrices (GRM) for additive and dominant effects for chromosome level and segment level.
+The GRM for additive effect and dominant effects are as the above.
+For the GRM at chromosome, segment or point level, just using only the corresponding markers.
+
+Usage:
+Rscript GDGRM.R 
+-genotype genotype_file 
+-format gentype_format 
+-pedigree pedigree_file 
+-method method 
+-snp map_information 
+-output output_file_prefix 
+-level chromosome_level 
+-type grm_type 
+-unit unit 
+-chr chr
+
+-genotype: genotype file, it can be simplified as –geno or -g;
+-format: genotype format, allele or genotype. the allele format is id, allele1.1, allele1.2, allele2.1, allele2.2 …; and the genotype format is: id, geno1, geno2….   Allele is used with 1 and 2, genotype is indicated with 0,1,2. It can be simplified as –form or –f.
+-pedigree: pedigree file, id, father and mother. It can be simplified as –ped or –p.
+-method: which method is used to calculate GRM，1, 2, and 3. 1 and 2 indicate method 1 and 2 in Van Raden (2008, J. Dairy Sci.), 3 means the standardization with observed men and variance of each marker. It can be simplified as –meth or –m.
+-snp: the SNP map file, marker name, chromosome, position. It can be simplified as –s or by using –map.
+-output:  the prefix of output, can be simplified as –out or –o.
+-level:  at which level, chromosome (chr) or segment (seg), can be simplified as –l.
+-type:  the type of epistasis (aa, ad, da and dd), can be simplified as –t.
+-unit   : the length of chromosome segment (Mb), can be simplified as –u.
+-chr : chromosome, chr1 and chr2 mean the GRM between chr1 and chr2.
+Output：
+The output file for chromosome level is named as: prefix_chr1_type 
+The output file for segment level is named as: prefix_chr1.segi_ type
+
+Contact: hengde@aliyun.com。
